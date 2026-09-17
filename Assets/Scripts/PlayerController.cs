@@ -1,181 +1,213 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody2D))]
+[RequireComponent(typeof(CircleCollider2D))]
 public class PlayerController : MonoBehaviour
 {
+    [Header("Movement")]
     public float moveSpeed = 4f;
-    public float accel = 36f;
     public float turnAccel = 55f;
     public float recoverAccel = 18f;
     public float holdSpeedScale = 0.5f;
+    public float holdSlowdown = 7f;
+
+    [Header("Dash")]
     public float dashSpeed = 11f;
     public float dashTime = 0.12f;
     public float dashCooldown = 1.2f;
+
+    [Header("Ball Control")]
+    public float kickRange = 0.75f;
     public float kickFromSpeed = 1.25f;
     public float holdKickBonus = 5f;
     public float minKick = 1.6f;
     public float chargeSeconds = 1.75f;
     public float powerShotForce = 28f;
-    public float chargeRangePad = 0f;
-    public float chargeGrace = 0.45f;
-    public float forwardPowerMul = 1.75f;
-    public float sameDirDot = 0.92f;
+
+    [Header("Dash Kick")]
+    public float dashKickMemoryTime = 0.45f;
+
+    [Header("Charge Visuals")]
     public Color chargeColor = new Color(1f, 0.85f, 0.2f);
 
-    Rigidbody2D rb;
-    CircleCollider2D playerCol;
-    Vector2 input;
-    Vector2 lastDir = Vector2.right;
-    float dashUntil;
-    float dashReady;
-    bool kickHeld;
-    bool kickHeldPrev;
-    bool kickPressed;
+    private Rigidbody2D rb;
+    private CircleCollider2D playerCol;
+    private Vector2 input;
+    private Vector2 lastDir = Vector2.right;
 
-    float contactTime;
-    bool charged;
-    bool chargedSfxPlayed;
-    SpriteRenderer ballSr;
-    Color ballOrig = Color.white;
-    AudioSource audioSrc;
-    Rigidbody2D nearBall;
-    Rigidbody2D lastBall;
-    float lastTouch = -99f;
-    float lostNearAt = -999f;
+    private float dashUntil;
+    private float dashReady;
 
-    public void SetKickHeld(bool held) { kickHeld = held; }
+    private bool kickHeld;
+    private bool kickHeldPrev;
+    private bool kickPressed;
 
-    void Awake()
+    private Rigidbody2D nearBall;
+    private SpriteRenderer ballSr;
+    private Color ballOrig = Color.white;
+
+    private float contactTime;
+    private bool charged;
+    private bool chargedSfxPlayed;
+
+    private float storedKickSpeed;
+    private float storedKickSpeedUntil;
+
+    private AudioSource audioSrc;
+
+    public void SetKickHeld(bool held)
+    {
+        kickHeld = held;
+    }
+
+    private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         playerCol = GetComponent<CircleCollider2D>();
+
         rb.gravityScale = 0f;
         rb.freezeRotation = true;
         rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         rb.mass = 1.4f;
 
-        var sr = GetComponent<SpriteRenderer>();
-        if (sr != null && sr.sprite != null && playerCol != null)
+        PhysicsMaterial2D playerMaterial = new PhysicsMaterial2D("PlayerSoft")
         {
-            playerCol.offset = sr.sprite.bounds.center;
-            playerCol.radius = sr.sprite.bounds.extents.x;
-        }
+            friction = 0.35f,
+            bounciness = 0f
+        };
 
-        var mat = new PhysicsMaterial2D("PlayerSoft") { friction = 0.35f, bounciness = 0f };
-        if (playerCol != null) playerCol.sharedMaterial = mat;
+        playerCol.sharedMaterial = playerMaterial;
 
         audioSrc = gameObject.AddComponent<AudioSource>();
         audioSrc.playOnAwake = false;
     }
 
-    void Update()
+    private void Update()
     {
-        input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        if (input.sqrMagnitude > 1f) input.Normalize();
-        if (input.sqrMagnitude > 0.01f) lastDir = input.normalized;
+        input = new Vector2(
+            Input.GetAxisRaw("Horizontal"),
+            Input.GetAxisRaw("Vertical")
+        );
+
+        if (input.sqrMagnitude > 1f)
+        {
+            input.Normalize();
+        }
+
+        if (input.sqrMagnitude > 0.01f)
+        {
+            lastDir = input.normalized;
+        }
 
         bool down = Input.GetKey(KeyCode.Space) || Input.GetMouseButton(0);
+
         kickPressed = down && !kickHeldPrev;
         kickHeld = down;
-        if (kickHeld && !kickHeldPrev)
-            rb.velocity *= holdSpeedScale;
         kickHeldPrev = kickHeld;
 
         if (Time.time >= dashReady && Input.GetKeyDown(KeyCode.LeftShift))
         {
             dashUntil = Time.time + dashTime;
             dashReady = Time.time + dashCooldown;
+
+            storedKickSpeed = dashSpeed;
+            storedKickSpeedUntil = Time.time + dashTime + dashKickMemoryTime;
         }
 
         nearBall = FindNearBall();
-        if (nearBall == null && lastBall != null && Time.time - lastTouch < 0.12f)
-            nearBall = lastBall;
 
-        if (nearBall != null)
+        if (nearBall == null)
         {
-            lastBall = nearBall;
-            lostNearAt = -1f;
-
-            if (ballSr == null)
-            {
-                ballSr = nearBall.GetComponent<SpriteRenderer>();
-                if (ballSr != null) ballOrig = ballSr.color;
-            }
-
-            contactTime += Time.deltaTime;
-            if (!charged && contactTime >= chargeSeconds)
-            {
-                charged = true;
-                if (!chargedSfxPlayed)
-                {
-                    chargedSfxPlayed = true;
-                    PlayChargeReady(nearBall);
-                }
-            }
-
-            if (kickPressed)
-            {
-                if (charged) PowerKick(nearBall);
-                else NormalKick(nearBall);
-            }
-        }
-        else
-        {
-            if (lostNearAt < 0f) lostNearAt = Time.time;
-            if (Time.time - lostNearAt <= chargeGrace)
-            {
-                if (kickPressed && lastBall != null)
-                {
-                    if (charged) PowerKick(lastBall);
-                    else NormalKick(lastBall);
-                }
-            }
-            else ResetCharge(true);
+            ResetCharge(true);
+            return;
         }
 
-        if (ballSr != null && (nearBall != null || Time.time - lostNearAt <= chargeGrace))
+        SetBallRenderer(nearBall);
+
+        contactTime += Time.deltaTime;
+
+        if (!charged && contactTime >= chargeSeconds)
         {
-            float t = Mathf.Clamp01(contactTime / chargeSeconds);
-            ballSr.color = charged ? Color.white : Color.Lerp(ballOrig, chargeColor, t);
+            charged = true;
+
+            if (!chargedSfxPlayed)
+            {
+                chargedSfxPlayed = true;
+                PlayChargeReady(nearBall);
+            }
+        }
+
+        UpdateChargeColor();
+
+        if (kickPressed)
+        {
+            if (charged)
+            {
+                PowerKick(nearBall);
+            }
+            else
+            {
+                NormalKick(nearBall);
+            }
         }
     }
 
-    Rigidbody2D FindNearBall()
+    private Rigidbody2D FindNearBall()
     {
-        Vector2 pos = rb.position;
-        float r = 0.5f;
-        if (playerCol != null)
-        {
-            pos += playerCol.offset;
-            r = playerCol.radius * Mathf.Abs(transform.lossyScale.x) + chargeRangePad + 0.02f;
-        }
-        var hits = Physics2D.OverlapCircleAll(pos, r);
+        Collider2D[] hits = Physics2D.OverlapCircleAll(rb.position, kickRange);
+
         for (int i = 0; i < hits.Length; i++)
         {
-            if (hits[i] != null && hits[i].CompareTag("Ball") && hits[i].attachedRigidbody != null)
-                return hits[i].attachedRigidbody;
+            Collider2D hit = hits[i];
+
+            if (hit != null &&
+                hit.CompareTag("Ball") &&
+                hit.attachedRigidbody != null)
+            {
+                return hit.attachedRigidbody;
+            }
         }
+
         return null;
     }
 
-    bool SameDirectionAsBall(Rigidbody2D ball)
+    private void SetBallRenderer(Rigidbody2D ball)
     {
-        Vector2 p = rb.velocity;
-        Vector2 b = ball.velocity;
-        if (p.sqrMagnitude < 0.25f || b.sqrMagnitude < 0.25f)
-            return false;
-        return Vector2.Dot(p.normalized, b.normalized) >= sameDirDot;
+        SpriteRenderer renderer = ball.GetComponent<SpriteRenderer>();
+
+        if (renderer == null)
+        {
+            return;
+        }
+
+        if (ballSr != renderer)
+        {
+            ballSr = renderer;
+            ballOrig = ballSr.color;
+        }
     }
 
-    float ShotPower(Rigidbody2D ball, float basePower)
+    private void UpdateChargeColor()
     {
-        if (SameDirectionAsBall(ball))
-            return basePower * forwardPowerMul;
-        return basePower;
+        if (ballSr == null)
+        {
+            return;
+        }
+
+        float progress = Mathf.Clamp01(contactTime / chargeSeconds);
+
+        if (charged)
+        {
+            ballSr.color = Color.white;
+        }
+        else
+        {
+            ballSr.color = Color.Lerp(ballOrig, chargeColor, progress);
+        }
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
         if (Time.time < dashUntil)
         {
@@ -183,131 +215,224 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        float speed = kickHeld ? moveSpeed * holdSpeedScale : moveSpeed;
-        Vector2 target = input * speed;
-        float a = kickHeld ? 80f : recoverAccel;
-        if (!kickHeld && target.sqrMagnitude > 0.01f && Vector2.Dot(rb.velocity, target) < 0f)
-            a = turnAccel;
-        rb.velocity = Vector2.MoveTowards(rb.velocity, target, a * Time.fixedDeltaTime);
+        float targetSpeed = kickHeld
+            ? moveSpeed * holdSpeedScale
+            : moveSpeed;
+
+        Vector2 targetVelocity = input * targetSpeed;
+
+        float acceleration = kickHeld
+            ? holdSlowdown
+            : recoverAccel;
+
+        if (!kickHeld &&
+            targetVelocity.sqrMagnitude > 0.01f &&
+            Vector2.Dot(rb.velocity, targetVelocity) < 0f)
+        {
+            acceleration = turnAccel;
+        }
+
+        rb.velocity = Vector2.MoveTowards(
+            rb.velocity,
+            targetVelocity,
+            acceleration * Time.fixedDeltaTime
+        );
     }
 
-    void OnCollisionStay2D(Collision2D col)
+    private void NormalKick(Rigidbody2D ball)
     {
-        if (!col.collider.CompareTag("Ball")) return;
-        if (col.rigidbody == null) return;
-        lastBall = col.rigidbody;
-        lastTouch = Time.time;
-    }
+        Vector2 direction = KickDirection(ball);
 
-    void NormalKick(Rigidbody2D ball)
-    {
-        Vector2 dir = DirTo(ball);
-        float power = rb.velocity.magnitude * kickFromSpeed + holdKickBonus;
-        if (power < minKick) power = minKick;
-        ball.velocity = dir * ShotPower(ball, power);
+        float speedForKick = rb.velocity.magnitude;
+
+        if (Time.time <= storedKickSpeedUntil)
+        {
+            speedForKick = Mathf.Max(speedForKick, storedKickSpeed);
+        }
+
+        float power = speedForKick * kickFromSpeed + holdKickBonus;
+
+        if (power < minKick)
+        {
+            power = minKick;
+        }
+
+        ball.velocity = direction * power;
+
+        ClearDashKickMemory();
         ResetCharge(true);
     }
 
-    void PowerKick(Rigidbody2D ball)
+    private void PowerKick(Rigidbody2D ball)
     {
-        Vector2 dir = DirTo(ball);
-        ball.velocity = dir * ShotPower(ball, powerShotForce);
+        Vector2 direction = KickDirection(ball);
+
+        ball.velocity = direction * powerShotForce;
+
         PlayKickBoom();
         SpawnFlash(ball.position, new Color(1f, 0.9f, 0.3f), 2.4f);
+
+        ClearDashKickMemory();
         ResetCharge(true);
     }
 
-    Vector2 DirTo(Rigidbody2D ball)
+    private Vector2 KickDirection(Rigidbody2D ball)
     {
-        if (rb.velocity.sqrMagnitude > 0.05f) return rb.velocity.normalized;
-        if (lastDir.sqrMagnitude > 0.01f) return lastDir;
-        return ((Vector2)ball.position - rb.position).normalized;
+        Vector2 direction = ball.position - rb.position;
+
+        if (direction.sqrMagnitude > 0.001f)
+        {
+            return direction.normalized;
+        }
+
+        if (lastDir.sqrMagnitude > 0.01f)
+        {
+            return lastDir.normalized;
+        }
+
+        return Vector2.right;
     }
 
-    void PlayChargeReady(Rigidbody2D ball)
+    private void ClearDashKickMemory()
+    {
+        storedKickSpeed = 0f;
+        storedKickSpeedUntil = 0f;
+    }
+
+    private void PlayChargeReady(Rigidbody2D ball)
     {
         PlayBeep(880f, 0.12f, 0.5f);
         PlayBeep(1320f, 0.18f, 0.55f);
+
         SpawnFlash(ball.position, chargeColor, 1.8f);
+
         if (ballSr != null)
+        {
             StartCoroutine(Pulse(ballSr.transform));
+        }
     }
 
-    void PlayKickBoom()
+    private void PlayKickBoom()
     {
         PlayBeep(180f, 0.08f, 0.6f);
         PlayBeep(420f, 0.12f, 0.4f);
     }
 
-    void PlayBeep(float freq, float dur, float vol)
+    private void PlayBeep(float frequency, float duration, float volume)
     {
-        int rate = 22050;
-        int n = Mathf.CeilToInt(rate * dur);
-        var data = new float[n];
-        for (int i = 0; i < n; i++)
+        const int sampleRate = 22050;
+
+        int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+        float[] data = new float[sampleCount];
+
+        for (int i = 0; i < sampleCount; i++)
         {
-            float t = i / (float)rate;
-            data[i] = Mathf.Sin(2f * Mathf.PI * freq * t) * (1f - i / (float)n) * vol;
+            float time = i / (float)sampleRate;
+            float fadeOut = 1f - i / (float)sampleCount;
+
+            data[i] = Mathf.Sin(2f * Mathf.PI * frequency * time)
+                      * fadeOut
+                      * volume;
         }
-        var clip = AudioClip.Create("beep", n, 1, rate, false);
+
+        AudioClip clip = AudioClip.Create(
+            "GoalBlitzBeep",
+            sampleCount,
+            1,
+            sampleRate,
+            false
+        );
+
         clip.SetData(data, 0);
         audioSrc.PlayOneShot(clip);
     }
 
-    void SpawnFlash(Vector2 pos, Color c, float size)
+    private void SpawnFlash(Vector2 position, Color color, float size)
     {
-        var go = new GameObject("ChargeFlash");
-        go.transform.position = pos;
-        var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = ballSr != null ? ballSr.sprite : null;
-        sr.color = new Color(c.r, c.g, c.b, 0.85f);
-        sr.sortingOrder = 20;
-        StartCoroutine(FlashAnim(go.transform, sr, size));
+        GameObject flash = new GameObject("ChargeFlash");
+        flash.transform.position = position;
+
+        SpriteRenderer renderer = flash.AddComponent<SpriteRenderer>();
+
+        renderer.sprite = ballSr != null ? ballSr.sprite : null;
+        renderer.color = new Color(color.r, color.g, color.b, 0.85f);
+        renderer.sortingOrder = 20;
+
+        StartCoroutine(FlashAnimation(flash.transform, renderer, size));
     }
 
-    IEnumerator FlashAnim(Transform tr, SpriteRenderer sr, float size)
+    private IEnumerator FlashAnimation(
+        Transform flashTransform,
+        SpriteRenderer flashRenderer,
+        float size)
     {
-        float t = 0f;
-        while (t < 0.35f)
+        float time = 0f;
+        const float duration = 0.35f;
+
+        while (time < duration)
         {
-            t += Time.deltaTime;
-            float k = t / 0.35f;
-            tr.localScale = Vector3.one * Mathf.Lerp(0.4f, size, k);
-            var col = sr.color;
-            col.a = 0.85f * (1f - k);
-            sr.color = col;
+            time += Time.deltaTime;
+
+            float progress = time / duration;
+
+            flashTransform.localScale = Vector3.one *
+                Mathf.Lerp(0.4f, size, progress);
+
+            Color color = flashRenderer.color;
+            color.a = 0.85f * (1f - progress);
+            flashRenderer.color = color;
+
             yield return null;
         }
-        Destroy(tr.gameObject);
+
+        Destroy(flashTransform.gameObject);
     }
 
-    IEnumerator Pulse(Transform tr)
+    private IEnumerator Pulse(Transform target)
     {
-        Vector3 a = tr.localScale;
-        float t = 0f;
-        while (t < 0.2f)
+        Vector3 originalScale = target.localScale;
+        float time = 0f;
+
+        while (time < 0.2f)
         {
-            t += Time.deltaTime;
-            tr.localScale = a * Mathf.Lerp(1f, 1.35f, t / 0.2f);
+            time += Time.deltaTime;
+
+            target.localScale = originalScale *
+                Mathf.Lerp(1f, 1.35f, time / 0.2f);
+
             yield return null;
         }
-        t = 0f;
-        while (t < 0.2f)
+
+        time = 0f;
+
+        while (time < 0.2f)
         {
-            t += Time.deltaTime;
-            tr.localScale = a * Mathf.Lerp(1.35f, 1f, t / 0.2f);
+            time += Time.deltaTime;
+
+            target.localScale = originalScale *
+                Mathf.Lerp(1.35f, 1f, time / 0.2f);
+
             yield return null;
         }
-        tr.localScale = a;
+
+        target.localScale = originalScale;
     }
 
-    void ResetCharge(bool resetColor)
+    private void ResetCharge(bool resetColor)
     {
         contactTime = 0f;
         charged = false;
         chargedSfxPlayed = false;
-        lostNearAt = -999f;
+
         if (resetColor && ballSr != null)
+        {
             ballSr.color = ballOrig;
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, kickRange);
     }
 }

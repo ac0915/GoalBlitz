@@ -575,25 +575,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5a863f21ded6a649a420f839ef82ba2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 3.5
-  accel: 22
+  moveSpeed: 3.6
   turnAccel: 55
   recoverAccel: 18
   holdSpeedScale: 0.35
+  holdSlowdown: 15
   dashSpeed: 9
   dashTime: 0.12
   dashCooldown: 1.2
-  kickFromSpeed: 0.85
-  holdKickBonus: 4
-  minKick: 0.6
+  kickRange: 0.5
+  kickFromSpeed: 1.5
+  holdKickBonus: 10
+  minKick: 0.8
   chargeSeconds: 1.5
   powerShotForce: 20
-  chargeRangePad: 0.35
-  chargeGrace: 0.25
-  forwardPowerMul: 2.75
-  sameDirDot: 0.92
-  idleBallMaxSpeed: 1.25
-  idleBallDamp: 0.35
+  dashKickMemoryTime: 0.45
   chargeColor: {r: 1, g: 0.85, b: 0.2, a: 1}
 --- !u!1 &948459735
 GameObject:
@@ -764,7 +760,7 @@ Rigidbody2D:
   m_Simulated: 1
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
-  m_Mass: 0.3
+  m_Mass: 0.4
   m_LinearDrag: 1.67
   m_AngularDrag: 2
   m_GravityScale: 0
@@ -789,7 +785,7 @@ CircleCollider2D:
   m_Enabled: 1
   serializedVersion: 3
   m_Density: 1
-  m_Material: {fileID: 6200000, guid: a8f20fcc2cedab748a097dd5389391b1, type: 2}
+  m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
