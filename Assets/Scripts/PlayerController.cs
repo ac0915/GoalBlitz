@@ -56,9 +56,32 @@ public class PlayerController : MonoBehaviour
 
     private AudioSource audioSrc;
 
+    private bool inputLocked;
+
     public void SetKickHeld(bool held)
     {
         kickHeld = held;
+    }
+
+    public void SetInputLocked(bool locked)
+    {
+        inputLocked = locked;
+
+        if (locked)
+        {
+            input = Vector2.zero;
+            kickHeld = false;
+            kickPressed = false;
+            kickHeldPrev = false;
+
+            dashUntil = 0f;
+            storedKickSpeed = 0f;
+            storedKickSpeedUntil = 0f;
+
+            rb.velocity = Vector2.zero;
+
+            ResetCharge(true);
+        }
     }
 
     private void Awake()
@@ -85,6 +108,15 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        if (inputLocked)
+        {
+            input = Vector2.zero;
+            kickHeld = false;
+            kickPressed = false;
+            kickHeldPrev = false;
+            return;
+        }
+
         input = new Vector2(
             Input.GetAxisRaw("Horizontal"),
             Input.GetAxisRaw("Vertical")
@@ -209,6 +241,11 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (inputLocked)
+        {
+            return;
+        }
+
         if (Time.time < dashUntil)
         {
             rb.velocity = lastDir * dashSpeed;
