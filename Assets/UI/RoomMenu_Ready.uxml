@@ -1,0 +1,26 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="GoalBlitzTheme_Ready.uss" />
+    <ui:VisualElement name="MainContainer" class="screen">
+        <ui:VisualElement class="header">
+            <ui:Label text="GOALBLITZ" class="brand" />
+            <ui:Label text="MATCHDAY / ONLINE" class="header-note" />
+        </ui:VisualElement>
+        <ui:VisualElement class="center-area">
+            <ui:VisualElement class="panel">
+                <ui:Label text="READY TO PLAY?" class="headline" />
+                <ui:Label text="Create a match or join with a room code." class="subtitle" />
+                <ui:Label text="PLAYER NAME  (OPTIONAL)" class="field-label" />
+                <ui:TextField name="PlayerNameField" class="input-field" />
+                <ui:Button name="CreateGame" text="CREATE GAME" class="primary-button" />
+                <ui:Label text="OR JOIN A ROOM" class="divider-label" />
+                <ui:Label text="ROOM CODE" class="field-label" />
+                <ui:TextField name="RoomCodeField" class="input-field" />
+                <ui:Button name="JoinGame" text="JOIN GAME" class="secondary-button" />
+                <ui:Label name="StatusLabel" text="" class="status-label" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="footer">
+            <ui:Label text="TWO PLAYERS. ONE WINNER." class="footer-text" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

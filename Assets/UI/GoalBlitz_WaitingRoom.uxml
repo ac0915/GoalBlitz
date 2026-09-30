@@ -1,0 +1,75 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="GoalBlitz_Matchday.uss" />
+
+    <ui:VisualElement name="LobbyRoot" class="lobby-screen">
+        <ui:VisualElement class="lobby-stadium-glow" />
+        <ui:VisualElement class="lobby-orb orb-left" />
+        <ui:VisualElement class="lobby-orb orb-right" />
+
+        <ui:VisualElement class="lobby-overlay">
+            <ui:VisualElement class="lobby-header">
+                <ui:Button name="LeaveButton" text="BACK" class="back-button" />
+
+                <ui:VisualElement class="room-heading">
+                    <ui:Label name="RoomTitleLabel" text="PLAYER 1'S ROOM" class="room-title" />
+                    <ui:Label text="PRIVATE MATCH  •  1 VS 1" class="room-subtitle" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="room-code-group">
+                    <ui:Label text="ROOM CODE" class="code-caption" />
+                    <ui:Label name="RoomCodeLabel" text="------" class="code-display" />
+                    <ui:Button name="CopyCodeButton" text="COPY" class="copy-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="lobby-body">
+                <ui:VisualElement class="match-banner">
+                    <ui:Label text="⚽" class="football-emoji" />
+                    <ui:Label text="CHOOSE YOUR SIDE" class="match-banner-title" />
+                    <ui:Label text="Invite a friend, pick a colour, and get ready for kickoff." class="match-banner-subtitle" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="teams-row">
+                    <ui:VisualElement class="team-column blue-card">
+                        <ui:VisualElement class="team-heading blue-heading">
+                            <ui:Label text="BLUE TEAM" class="team-heading-text" />
+                            <ui:Label text="01 / 01" class="team-count" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="player-slot">
+                            <ui:VisualElement class="team-badge blue-badge" />
+                            <ui:Label name="BlueTeamNameLabel" text="EMPTY" class="player-name" />
+                            <ui:Button name="JoinBlueButton" text="JOIN" class="team-button blue-button" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:Label text="VS" class="versus-label" />
+
+                    <ui:VisualElement class="team-column red-card">
+                        <ui:VisualElement class="team-heading red-heading">
+                            <ui:Label text="RED TEAM" class="team-heading-text" />
+                            <ui:Label text="01 / 01" class="team-count" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="player-slot">
+                            <ui:VisualElement class="team-badge red-badge" />
+                            <ui:Label name="RedTeamNameLabel" text="EMPTY" class="player-name" />
+                            <ui:Button name="JoinRedButton" text="JOIN" class="team-button red-button" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:Label name="LobbyStatusLabel" text="Waiting for another player..." class="lobby-status" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="lobby-footer">
+                <ui:Label text="HOST CHOOSES A TEAM  •  GUEST JOINS THE OTHER" class="lobby-hint" />
+
+                <ui:VisualElement class="footer-actions">
+                    <ui:Button name="ReadyButton" text="READY" class="lobby-action ready-button" />
+                    <ui:Button name="StartButton" text="KICK OFF" class="lobby-action start-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

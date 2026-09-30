@@ -1,0 +1,61 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="GoalBlitzTheme.uss" />
+
+    <ui:VisualElement name="MainContainer" class="menu-screen">
+        <ui:VisualElement class="sky-band" />
+        <ui:VisualElement class="horizon-band" />
+        <ui:VisualElement class="mesa mesa-left" />
+        <ui:VisualElement class="mesa mesa-right" />
+
+        <ui:VisualElement class="menu-content">
+            <ui:VisualElement class="logo-wrap">
+                <ui:Label
+                    name="GoalBlitzTitle"
+                    text="GOALBLITZ"
+                    class="menu-logo" />
+                <ui:Label
+                    text="MATCHDAY"
+                    class="menu-subtitle" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="menu-actions">
+                <ui:Label
+                    text="PLAYER NAME  /  OPTIONAL"
+                    class="menu-caption" />
+
+                <ui:TextField
+                    name="PlayerNameField"
+                    class="menu-field" />
+
+                <ui:Button
+                    name="CreateGame"
+                    text="CREATE GAME"
+                    class="paper-button create-button" />
+
+                <ui:Label
+                    text="HAVE A ROOM CODE?"
+                    class="menu-caption code-caption" />
+
+                <ui:VisualElement class="join-row">
+                    <ui:TextField
+                        name="RoomCodeField"
+                        class="menu-field code-field" />
+
+                    <ui:Button
+                        name="JoinGame"
+                        text="JOIN GAME"
+                        class="paper-button join-button" />
+                </ui:VisualElement>
+
+                <ui:Label
+                    name="StatusLabel"
+                    text=""
+                    class="menu-status" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:Label
+            text="TWO PLAYERS  •  ONE WINNER"
+            class="menu-footer" />
+    </ui:VisualElement>
+</ui:UXML>
