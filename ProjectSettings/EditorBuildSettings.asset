@@ -11,7 +11,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/WaitingRoom.scene
     guid: 20d6273011c582346b799ffd886132b3
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/OnlinePitch.scene
     guid: 290e9ba8c1b51ef41955177c996ba75f
   - enabled: 1

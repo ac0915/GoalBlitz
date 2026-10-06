@@ -210,6 +210,7 @@ PlayerSettings:
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
+    Android: com.DefaultCompany.GoalBlitz
     Standalone: com.DefaultCompany.GoalBlitz
   buildNumber:
     Standalone: 0
@@ -315,7 +316,7 @@ PlayerSettings:
   useCustomGradlePropertiesTemplate: 0
   useCustomGradleSettingsTemplate: 0
   useCustomProguardFile: 0
-  AndroidTargetArchitectures: 1
+  AndroidTargetArchitectures: 2
   AndroidTargetDevices: 0
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
@@ -982,7 +983,8 @@ PlayerSettings:
     iPhone: UNITY_UOS_SECURITY;FUSION_WEAVER;FUSION2;FUSION_2;FUSION_2_1;FUSION_2_1_2;FUSION_2_OR_NEWER;FUSION_2_0_OR_NEWER;FUSION_2_1_OR_NEWER;FUSION_LOGLEVEL_INFO
   additionalCompilerArguments: {}
   platformArchitecture: {}
-  scriptingBackend: {}
+  scriptingBackend:
+    Android: 1
   il2cppCompilerConfiguration: {}
   il2cppCodeGeneration: {}
   managedStrippingLevel:
@@ -1154,7 +1156,7 @@ PlayerSettings:
   weixinMiniGameInvariantPosition: 0
   minigameJobEnabled: 0
   minigameJobWorkerCount: 2
-  activeInputHandler: 2
+  activeInputHandler: 1
   windowsGamepadBackendHint: 0
   cloudProjectId: 
   framebufferDepthMemorylessMode: 0
