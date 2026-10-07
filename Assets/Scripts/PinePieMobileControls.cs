@@ -1,15 +1,17 @@
+using PinePie.SimpleJoystick;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
 /// Bridges PinePie JoystickController + Kick/Dash UI buttons into MobileInputBridge.
-/// Hang this on the Pitch Canvas. Assign the PinePie joystick and the two buttons.
+/// Hang this on the Pitch Canvas (NOT on the joystick object).
+/// Assign the PinePie joystick and the two buttons in the Inspector.
 /// </summary>
 public class PinePieMobileControls : MonoBehaviour
 {
     [Header("PinePie Joystick")]
-    [Tooltip("The panel that has JoystickController (PinePie)")]
+    [Tooltip("The object that has JoystickController (e.g. Static Free moving)")]
     [SerializeField] private JoystickController joystick;
 
     [Header("Action Buttons")]
@@ -64,9 +66,8 @@ public class PinePieMobileControls : MonoBehaviour
             return;
         }
 
-        // PinePie API: InputDirection (see PinePie manual example)
-        Vector2 dir = joystick.InputDirection;
-        MobileInputBridge.Move = dir;
+        // PinePie API: public Vector2 InputDirection
+        MobileInputBridge.Move = joystick.InputDirection;
     }
 
     private void OnDisable()
