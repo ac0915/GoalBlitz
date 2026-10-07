@@ -271,87 +271,89 @@ public class WaitingRoomController : MonoBehaviour
                 "Both players are ready. Waiting for host kickoff.";
         }
     }
-private void JoinBlueTeam()
-{
-    Debug.Log(
-        "WaitingRoomController: BLUE JOIN clicked.",
-        this
-    );
 
-    RequestTeam(GoalBlitzLobbyState.BlueTeam);
-}
-
-private void JoinRedTeam()
-{
-    Debug.Log(
-        "WaitingRoomController: RED JOIN clicked.",
-        this
-    );
-
-    RequestTeam(GoalBlitzLobbyState.RedTeam);
-}
-
-private void RequestTeam(int requestedTeam)
-{
-    Debug.Log(
-        "WaitingRoomController: RequestTeam called. " +
-        "RequestedTeam=" + requestedTeam +
-        ", RunnerNull=" + (runner == null) +
-        ", RunnerRunning=" + (
-            runner != null &&
-            runner.IsRunning
-        ) +
-        ", LobbyStateNull=" + (lobbyState == null) +
-        ", LobbyObjectNull=" + (
-            lobbyState == null ||
-            lobbyState.Object == null
-        ) +
-        ", LobbyObjectValid=" + (
-            lobbyState != null &&
-            lobbyState.Object != null &&
-            lobbyState.Object.IsValid
-        ) +
-        ", LocalPlayerName=" + localPlayerName,
-        this
-    );
-
-    if (runner == null ||
-        !runner.IsRunning)
+    private void JoinBlueTeam()
     {
-        lobbyStatusLabel.text =
-            "Network runner is not ready.";
+        Debug.Log(
+            "WaitingRoomController: BLUE JOIN clicked.",
+            this
+        );
 
-        return;
+        RequestTeam(GoalBlitzLobbyState.BlueTeam);
     }
 
-    if (lobbyState == null)
+    private void JoinRedTeam()
     {
-        lobbyStatusLabel.text =
-            "Lobby state reference is missing.";
+        Debug.Log(
+            "WaitingRoomController: RED JOIN clicked.",
+            this
+        );
 
-        return;
+        RequestTeam(GoalBlitzLobbyState.RedTeam);
     }
 
-    if (lobbyState.Object == null ||
-        !lobbyState.Object.IsValid)
+    private void RequestTeam(int requestedTeam)
     {
-        lobbyStatusLabel.text =
-            "Lobby state object is not valid.";
+        Debug.Log(
+            "WaitingRoomController: RequestTeam called. " +
+            "RequestedTeam=" + requestedTeam +
+            ", RunnerNull=" + (runner == null) +
+            ", RunnerRunning=" + (
+                runner != null &&
+                runner.IsRunning
+            ) +
+            ", LobbyStateNull=" + (lobbyState == null) +
+            ", LobbyObjectNull=" + (
+                lobbyState == null ||
+                lobbyState.Object == null
+            ) +
+            ", LobbyObjectValid=" + (
+                lobbyState != null &&
+                lobbyState.Object != null &&
+                lobbyState.Object.IsValid
+            ) +
+            ", LocalPlayerName=" + localPlayerName,
+            this
+        );
 
-        return;
+        if (runner == null ||
+            !runner.IsRunning)
+        {
+            lobbyStatusLabel.text =
+                "Network runner is not ready.";
+
+            return;
+        }
+
+        if (lobbyState == null)
+        {
+            lobbyStatusLabel.text =
+                "Lobby state reference is missing.";
+
+            return;
+        }
+
+        if (lobbyState.Object == null ||
+            !lobbyState.Object.IsValid)
+        {
+            lobbyStatusLabel.text =
+                "Lobby state object is not valid.";
+
+            return;
+        }
+
+        lobbyState.RPC_RequestTeam(
+            requestedTeam,
+            new NetworkString<_32>(localPlayerName)
+        );
+
+        Debug.Log(
+            "WaitingRoomController: RPC_RequestTeam sent. " +
+            "RequestedTeam=" + requestedTeam,
+            this
+        );
     }
 
-    lobbyState.RPC_RequestTeam(
-        requestedTeam,
-        new NetworkString<_32>(localPlayerName)
-    );
-
-    Debug.Log(
-        "WaitingRoomController: RPC_RequestTeam sent. " +
-        "RequestedTeam=" + requestedTeam,
-        this
-    );
-}
     private void ToggleReady()
     {
         if (runner == null ||
@@ -464,15 +466,15 @@ private void RequestTeam(int requestedTeam)
             isRedLocalPlayer
         );
 
-       joinBlueButton.style.display =
-    blueOccupied
-        ? DisplayStyle.None
-        : DisplayStyle.Flex;
+        joinBlueButton.style.display =
+            blueOccupied
+                ? DisplayStyle.None
+                : DisplayStyle.Flex;
 
-joinRedButton.style.display =
-    redOccupied
-        ? DisplayStyle.None
-        : DisplayStyle.Flex;
+        joinRedButton.style.display =
+            redOccupied
+                ? DisplayStyle.None
+                : DisplayStyle.Flex;
 
         bool localHasTeam =
             isBlueLocalPlayer ||
@@ -512,8 +514,22 @@ joinRedButton.style.display =
             return;
         }
 
-        lobbyStatusLabel.text =
-            "Kickoff is not implemented yet.";
+        if (networkManager == null)
+        {
+            networkManager =
+                FindObjectOfType<GoalBlitzNetworkManager>();
+        }
+
+        if (networkManager == null)
+        {
+            lobbyStatusLabel.text =
+                "Kickoff failed. Network manager missing.";
+            return;
+        }
+
+        lobbyStatusLabel.text = "Kickoff...";
+        startButton.SetEnabled(false);
+        networkManager.KickOffMatch();
     }
 
     private void CopyRoomCode()
@@ -530,7 +546,7 @@ joinRedButton.style.display =
             $"Room code copied: {roomCode}";
     }
 
-      private void LeaveRoom()
+    private void LeaveRoom()
     {
         if (networkManager == null)
         {
