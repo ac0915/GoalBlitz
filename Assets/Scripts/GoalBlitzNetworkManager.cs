@@ -60,7 +60,8 @@ public class GoalBlitzNetworkManager :
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
+        // Keyboard only for editor / PC testing (no mouse — conflicts with mobile UI)
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             kickPressedThisFrame = true;
         }
@@ -565,23 +566,42 @@ public class GoalBlitzNetworkManager :
             Input.GetAxisRaw("Horizontal"),
             Input.GetAxisRaw("Vertical"));
 
+        // Mobile joystick overrides keyboard when in use
+        if (MobileInputBridge.Move.sqrMagnitude > 0.01f)
+        {
+            move = MobileInputBridge.Move;
+        }
+
         if (move.sqrMagnitude > 1f)
         {
             move.Normalize();
         }
 
+        bool kickHeld =
+            Input.GetKey(KeyCode.Space) ||
+            MobileInputBridge.KickHeld;
+
+        bool kickPressed =
+            kickPressedThisFrame ||
+            MobileInputBridge.KickPressed;
+
+        bool dashPressed =
+            dashPressedThisFrame ||
+            MobileInputBridge.DashPressed;
+
         GoalBlitzPlayerInput data = new GoalBlitzPlayerInput
         {
             Move = move,
-            KickHeld = Input.GetKey(KeyCode.Space) || Input.GetMouseButton(0),
-            KickPressed = kickPressedThisFrame,
-            DashPressed = dashPressedThisFrame
+            KickHeld = kickHeld,
+            KickPressed = kickPressed,
+            DashPressed = dashPressed
         };
 
         input.Set(data);
 
         kickPressedThisFrame = false;
         dashPressedThisFrame = false;
+        MobileInputBridge.ClearFrameFlags();
     }
 
     public void OnInputMissing(NetworkRunner callbackRunner, PlayerRef player, NetworkInput input) { }
