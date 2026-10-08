@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(CircleCollider2D))]
@@ -30,6 +31,9 @@ public class PlayerController : MonoBehaviour
 
     [Header("Charge Visuals")]
     public Color chargeColor = new Color(1f, 0.85f, 0.2f);
+
+    [Header("Mobile")]
+    public bool useMobileInput;
 
     private Rigidbody2D rb;
     private CircleCollider2D playerCol;
@@ -114,31 +118,68 @@ public class PlayerController : MonoBehaviour
             kickHeld = false;
             kickPressed = false;
             kickHeldPrev = false;
+
+            if (useMobileInput)
+            {
+                MobileInputBridge.DashPressed = false;
+                MobileInputBridge.KickPressed = false;
+            }
+
             return;
         }
 
-        input = new Vector2(
+        Vector2 keyboard = new Vector2(
             Input.GetAxisRaw("Horizontal"),
             Input.GetAxisRaw("Vertical")
         );
 
-        if (input.sqrMagnitude > 1f)
+        if (keyboard.sqrMagnitude > 1f)
         {
-            input.Normalize();
+            keyboard.Normalize();
         }
+
+        Vector2 mobile = Vector2.zero;
+
+        if (useMobileInput)
+        {
+            mobile = MobileInputBridge.Move;
+
+            if (mobile.sqrMagnitude > 1f)
+            {
+                mobile.Normalize();
+            }
+        }
+
+        input = mobile.sqrMagnitude > 0.01f ? mobile : keyboard;
 
         if (input.sqrMagnitude > 0.01f)
         {
             lastDir = input.normalized;
         }
 
-        bool down = Input.GetKey(KeyCode.Space) || Input.GetMouseButton(0);
+        bool keyDown = Input.GetKey(KeyCode.Space);
+        bool mouseDown = Input.GetMouseButton(0) && !PointerIsOverUi();
+        bool mobileDown = useMobileInput && MobileInputBridge.KickHeld;
+        bool down = keyDown || mouseDown || mobileDown;
 
         kickPressed = down && !kickHeldPrev;
         kickHeld = down;
-        kickHeldPrev = kickHeld;
+        kickHeldPrev = down;
 
-        if (Time.time >= dashReady && Input.GetKeyDown(KeyCode.LeftShift))
+        if (useMobileInput)
+        {
+            MobileInputBridge.KickPressed = false;
+        }
+
+        bool dashRequested = Input.GetKeyDown(KeyCode.LeftShift);
+
+        if (useMobileInput && MobileInputBridge.DashPressed)
+        {
+            dashRequested = true;
+            MobileInputBridge.DashPressed = false;
+        }
+
+        if (dashRequested && Time.time >= dashReady)
         {
             dashUntil = Time.time + dashTime;
             dashReady = Time.time + dashCooldown;
@@ -183,6 +224,31 @@ public class PlayerController : MonoBehaviour
                 NormalKick(nearBall);
             }
         }
+    }
+
+    private static bool PointerIsOverUi()
+    {
+        EventSystem eventSystem = EventSystem.current;
+
+        if (eventSystem == null)
+        {
+            return false;
+        }
+
+        if (eventSystem.IsPointerOverGameObject())
+        {
+            return true;
+        }
+
+        for (int i = 0; i < Input.touchCount; i++)
+        {
+            if (eventSystem.IsPointerOverGameObject(Input.GetTouch(i).fingerId))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Rigidbody2D FindNearBall()
