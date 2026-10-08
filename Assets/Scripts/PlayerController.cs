@@ -457,7 +457,7 @@ public class PlayerController : MonoBehaviour
 
     private Vector2 KickDirection(Rigidbody2D ball)
     {
-        Vector2 direction = KickDirection(ball);
+        Vector2 direction = ball.position - rb.position;
 
         if (direction.sqrMagnitude > 0.001f)
         {
