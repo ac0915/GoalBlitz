@@ -63,6 +63,9 @@ public class PlayerController : MonoBehaviour
 
     private bool inputLocked;
 
+    // Mouse press that started on the joystick/HUD must not count as kick-hold.
+    private static bool mousePressStartedOnUi;
+
     public void SetKickHeld(bool held)
     {
         kickHeld = held;
@@ -129,6 +132,8 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        UpdateMousePressTracking();
+
         Vector2 keyboard = ReadKeyboardMove();
 
         if (keyboard.sqrMagnitude > 1f)
@@ -156,9 +161,12 @@ public class PlayerController : MonoBehaviour
         }
 
         bool keyDown = Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
-        bool mouseDown = Mouse.current != null
+        // Mouse left is used to drag the joystick. Never treat it as kick when
+        // this player uses mobile input, and never when the press began on UI.
+        bool mouseDown = !useMobileInput
+            && Mouse.current != null
             && Mouse.current.leftButton.isPressed
-            && !PointerIsOverUi();
+            && !mousePressStartedOnUi;
         bool mobileDown = useMobileInput && MobileInputBridge.KickHeld;
         bool down = keyDown || mouseDown || mobileDown;
 
@@ -223,6 +231,26 @@ public class PlayerController : MonoBehaviour
             {
                 NormalKick(nearBall);
             }
+        }
+    }
+
+    private static void UpdateMousePressTracking()
+    {
+        Mouse mouse = Mouse.current;
+
+        if (mouse == null)
+        {
+            mousePressStartedOnUi = false;
+            return;
+        }
+
+        if (mouse.leftButton.wasPressedThisFrame)
+        {
+            mousePressStartedOnUi = PointerIsOverUi();
+        }
+        else if (!mouse.leftButton.isPressed)
+        {
+            mousePressStartedOnUi = false;
         }
     }
 
@@ -429,7 +457,7 @@ public class PlayerController : MonoBehaviour
 
     private Vector2 KickDirection(Rigidbody2D ball)
     {
-        Vector2 direction = ball.position - rb.position;
+        Vector2 direction = KickDirection(ball);
 
         if (direction.sqrMagnitude > 0.001f)
         {
