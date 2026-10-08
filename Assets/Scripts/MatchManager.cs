@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class MatchManager : MonoBehaviour
 {
@@ -122,7 +123,8 @@ public class MatchManager : MonoBehaviour
     private void Update()
     {
         if (state == MatchState.MatchOver &&
-            Input.GetKeyDown(KeyCode.R))
+            Keyboard.current != null &&
+            Keyboard.current.rKey.wasPressedThisFrame)
         {
             blueScore = 0;
             redScore = 0;

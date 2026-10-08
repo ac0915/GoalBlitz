@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(CircleCollider2D))]
@@ -128,10 +129,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        Vector2 keyboard = new Vector2(
-            Input.GetAxisRaw("Horizontal"),
-            Input.GetAxisRaw("Vertical")
-        );
+        Vector2 keyboard = ReadKeyboardMove();
 
         if (keyboard.sqrMagnitude > 1f)
         {
@@ -157,8 +155,10 @@ public class PlayerController : MonoBehaviour
             lastDir = input.normalized;
         }
 
-        bool keyDown = Input.GetKey(KeyCode.Space);
-        bool mouseDown = Input.GetMouseButton(0) && !PointerIsOverUi();
+        bool keyDown = Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
+        bool mouseDown = Mouse.current != null
+            && Mouse.current.leftButton.isPressed
+            && !PointerIsOverUi();
         bool mobileDown = useMobileInput && MobileInputBridge.KickHeld;
         bool down = keyDown || mouseDown || mobileDown;
 
@@ -171,7 +171,7 @@ public class PlayerController : MonoBehaviour
             MobileInputBridge.KickPressed = false;
         }
 
-        bool dashRequested = Input.GetKeyDown(KeyCode.LeftShift);
+        bool dashRequested = Keyboard.current != null && Keyboard.current.leftShiftKey.wasPressedThisFrame;
 
         if (useMobileInput && MobileInputBridge.DashPressed)
         {
@@ -226,6 +226,40 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    private static Vector2 ReadKeyboardMove()
+    {
+        Keyboard keyboard = Keyboard.current;
+
+        if (keyboard == null)
+        {
+            return Vector2.zero;
+        }
+
+        Vector2 move = Vector2.zero;
+
+        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
+        {
+            move.x -= 1f;
+        }
+
+        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
+        {
+            move.x += 1f;
+        }
+
+        if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
+        {
+            move.y -= 1f;
+        }
+
+        if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
+        {
+            move.y += 1f;
+        }
+
+        return move;
+    }
+
     private static bool PointerIsOverUi()
     {
         EventSystem eventSystem = EventSystem.current;
@@ -240,9 +274,23 @@ public class PlayerController : MonoBehaviour
             return true;
         }
 
-        for (int i = 0; i < Input.touchCount; i++)
+        Touchscreen screen = Touchscreen.current;
+
+        if (screen == null)
         {
-            if (eventSystem.IsPointerOverGameObject(Input.GetTouch(i).fingerId))
+            return false;
+        }
+
+        for (int i = 0; i < screen.touches.Count; i++)
+        {
+            var touch = screen.touches[i];
+
+            if (!touch.press.isPressed)
+            {
+                continue;
+            }
+
+            if (eventSystem.IsPointerOverGameObject(touch.touchId.ReadValue()))
             {
                 return true;
             }
