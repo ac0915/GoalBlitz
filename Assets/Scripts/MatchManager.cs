@@ -39,9 +39,11 @@ public class MatchManager : MonoBehaviour
     public float goalTextPulseSpeed = 12f;
 
     [Header("Replay")]
-    public float replayRecordSeconds = 7f;
+    public float replayRecordSeconds = 6f;
     public float replayPlaybackSpeed = 1.25f;
     public float replayGoalShowSeconds = 0.8f;
+    public float replaySlowSeconds = 1f;
+    public float replaySlowSpeed = 0.75f;
 
     public static MatchManager Instance { get; private set; }
 
@@ -256,8 +258,16 @@ public class MatchManager : MonoBehaviour
             ball.transform.position =
                 frame.ballPosition;
 
+            int slowFrameCount = Mathf.CeilToInt(
+                Mathf.Max(0f, replaySlowSeconds) / Time.fixedDeltaTime
+            );
+            int slowStart = Mathf.Max(0, replayFrames.Count - slowFrameCount);
+            float speed = i >= slowStart
+                ? replaySlowSpeed
+                : replayPlaybackSpeed;
+
             yield return new WaitForSecondsRealtime(
-                Time.fixedDeltaTime / replayPlaybackSpeed
+                Time.fixedDeltaTime / Mathf.Max(0.05f, speed)
             );
         }
     }

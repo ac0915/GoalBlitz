@@ -3633,7 +3633,7 @@ MonoBehaviour:
   countdownSeconds: 3
   goalCelebrationSeconds: 2
   goalTextPulseSpeed: 12
-  replayRecordSeconds: 3
+  replayRecordSeconds: 6
   replayPlaybackSpeed: 1.25
   replayGoalShowSeconds: 0.8
 --- !u!1 &2064836536
