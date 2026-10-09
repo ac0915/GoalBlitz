@@ -512,8 +512,21 @@ joinRedButton.style.display =
             return;
         }
 
-        lobbyStatusLabel.text =
-            "Kickoff is not implemented yet.";
+        if (networkManager == null)
+        {
+            networkManager =
+                FindObjectOfType<GoalBlitzNetworkManager>();
+        }
+
+        if (networkManager == null)
+        {
+            lobbyStatusLabel.text =
+                "Could not start match. Network manager missing.";
+            return;
+        }
+
+        lobbyStatusLabel.text = "Starting match...";
+        networkManager.StartMatch();
     }
 
     private void CopyRoomCode()
