@@ -867,6 +867,7 @@ MonoBehaviour:
   lobbyStatePrefab: {fileID: 7468778042027897785, guid: ecf7dafadbafc9c4fa1190d24132d1b7, type: 3}
   waitingRoomScenePath: Assets/Scenes/WaitingRoom.scene
   roomMenuScenePath: Assets/Scenes/RoomMenu.scene
+  onlinePitchScenePath: Assets/Scenes/Pitch.scene
 --- !u!4 &1058109795
 Transform:
   m_ObjectHideFlags: 0
