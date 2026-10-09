@@ -32,7 +32,13 @@ public class PitchTeamBinder : MonoBehaviour
     private Snapshot ballA;
     private Snapshot ballB;
 
-    private const float RenderDelay = 0.045f;
+    private const float RenderDelay = 0.03f;
+
+    private void Awake()
+    {
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = 60;
+    }
 
     private void Start()
     {
@@ -51,12 +57,12 @@ public class PitchTeamBinder : MonoBehaviour
         bool localIsBlue = localTeam == GoalBlitzLobbyState.BlueTeam;
         bool localIsRed = localTeam == GoalBlitzLobbyState.RedTeam;
 
-        if (!localIsBlue)
+        if (!lobbyState.HasStateAuthority && !localIsBlue)
         {
             RenderSnapshot(bluePlayer, blueA, blueB);
         }
 
-        if (!localIsRed)
+        if (!lobbyState.HasStateAuthority && !localIsRed)
         {
             RenderSnapshot(redPlayer, redA, redB);
         }
@@ -93,12 +99,14 @@ public class PitchTeamBinder : MonoBehaviour
         bool localIsBlue = localTeam == GoalBlitzLobbyState.BlueTeam;
         bool localIsRed = localTeam == GoalBlitzLobbyState.RedTeam;
 
+        bool host = lobbyState.HasStateAuthority;
+
         if (bluePlayer != null)
         {
             bluePlayer.teamId = GoalBlitzLobbyState.BlueTeam;
             SetInput(bluePlayer, localIsBlue);
             bluePlayer.useMobileInput = localIsBlue;
-            SetSimulated(bluePlayer, localIsBlue);
+            SetSimulated(bluePlayer, localIsBlue || host);
         }
 
         if (redPlayer != null)
@@ -106,10 +114,10 @@ public class PitchTeamBinder : MonoBehaviour
             redPlayer.teamId = GoalBlitzLobbyState.RedTeam;
             SetInput(redPlayer, localIsRed);
             redPlayer.useMobileInput = localIsRed;
-            SetSimulated(redPlayer, localIsRed);
+            SetSimulated(redPlayer, localIsRed || host);
         }
 
-        SetBallSimulated(lobbyState.HasStateAuthority);
+        SetBallSimulated(host);
 
         if (!boundOnce)
         {
@@ -138,20 +146,50 @@ public class PitchTeamBinder : MonoBehaviour
             Report(redPlayer, GoalBlitzLobbyState.RedTeam);
         }
 
-        if (!localIsBlue)
+        if (host && !localIsBlue)
+        {
+            DriveRemoteOnHost(bluePlayer, lobbyState.BluePosition, lobbyState.BlueVelocity);
+        }
+        else if (!localIsBlue)
         {
             Push(ref blueA, ref blueB, lobbyState.BluePosition, lobbyState.BlueVelocity);
         }
 
-        if (!localIsRed)
+        if (host && !localIsRed)
+        {
+            DriveRemoteOnHost(redPlayer, lobbyState.RedPosition, lobbyState.RedVelocity);
+        }
+        else if (!localIsRed)
         {
             Push(ref redA, ref redB, lobbyState.RedPosition, lobbyState.RedVelocity);
         }
 
-        if (!lobbyState.HasStateAuthority && lobbyState.BallTick != 0)
+        if (!host && lobbyState.BallTick != 0)
         {
             Push(ref ballA, ref ballB, lobbyState.BallPosition, lobbyState.BallVelocity);
         }
+    }
+
+    private static void DriveRemoteOnHost(PlayerController controller, Vector2 position, Vector2 velocity)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+
+        if (position.sqrMagnitude < 0.0001f && velocity.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        Rigidbody2D rb = controller.GetComponent<Rigidbody2D>();
+        if (rb == null)
+        {
+            return;
+        }
+
+        rb.velocity = velocity;
+        rb.MovePosition(position);
     }
 
     private void Report(PlayerController controller, int team)
