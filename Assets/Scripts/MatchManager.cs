@@ -266,16 +266,8 @@ public class MatchManager : MonoBehaviour
             ball.transform.position =
                 frame.ballPosition;
 
-            int oneSecondFrames = Mathf.Max(
-                1,
-                Mathf.RoundToInt(1f / Time.fixedDeltaTime)
-            );
-            int slowStart = Mathf.Max(0, goalFrameIndex - oneSecondFrames);
-            int slowEnd = Mathf.Min(
-                replayFrames.Count,
-                goalFrameIndex + oneSecondFrames
-            );
-            float speed = i >= slowStart && i < slowEnd
+            float frameTime = i * Time.fixedDeltaTime;
+            float speed = frameTime >= 3.5f && frameTime < 4f
                 ? replaySlowSpeed
                 : 1f;
 
@@ -655,21 +647,6 @@ public class MatchManager : MonoBehaviour
                 "<color=#7BE8FFFF>REPLAY</color>",
                 smallMessageStyle
             );
-
-            float showGoalAt =
-                1f - (
-                    replayGoalShowSeconds /
-                    Mathf.Max(0.1f, replayBeforeSeconds + replayAfterSeconds)
-                );
-
-            if (replayProgress >= showGoalAt)
-            {
-                DrawGoalText(
-                    screenWidth,
-                    screenHeight,
-                    64f
-                );
-            }
 
             if (GUI.Button(
                 new Rect(
