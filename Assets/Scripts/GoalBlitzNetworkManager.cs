@@ -25,6 +25,8 @@ public class GoalBlitzNetworkManager :
         "Assets/Scenes/WaitingRoom.scene";
     [SerializeField] private string roomMenuScenePath =
         "Assets/Scenes/RoomMenu.scene";
+    [SerializeField] private string onlinePitchScenePath =
+        "Assets/Scenes/OnlinePitch.scene";
 
     private NetworkRunner runner;
     private GoalBlitzLobbyState lobbyState;
@@ -349,6 +351,69 @@ public class GoalBlitzNetworkManager :
         }
     }
 
+    public async void StartMatch()
+    {
+        if (runner == null || !runner.IsRunning || !runner.IsServer)
+        {
+            Debug.LogWarning(
+                "GoalBlitzNetworkManager: StartMatch ignored (not host or runner down).",
+                this
+            );
+            return;
+        }
+
+        GoalBlitzLobbyState state = GoalBlitzLobbyState.Instance;
+        if (state == null || !state.CanKickOff())
+        {
+            Debug.LogWarning(
+                "GoalBlitzNetworkManager: StartMatch ignored (teams not ready).",
+                this
+            );
+            return;
+        }
+
+        int pitchBuildIndex =
+            SceneUtility.GetBuildIndexByScenePath(onlinePitchScenePath);
+
+        if (pitchBuildIndex < 0)
+        {
+            Debug.LogError(
+                "OnlinePitch.scene is not enabled in Build Settings. Path: " +
+                onlinePitchScenePath,
+                this
+            );
+            return;
+        }
+
+        Debug.Log(
+            "GoalBlitzNetworkManager: Loading OnlinePitch for match.",
+            this
+        );
+
+        NetworkSceneAsyncOp sceneLoadOperation = runner.LoadScene(
+            SceneRef.FromIndex(pitchBuildIndex),
+            LoadSceneMode.Single
+        );
+
+        while (!sceneLoadOperation.IsDone)
+        {
+            await Task.Yield();
+        }
+
+        EnsurePitchTeamBinder();
+    }
+
+    private static void EnsurePitchTeamBinder()
+    {
+        if (UnityEngine.Object.FindObjectOfType<PitchTeamBinder>() != null)
+        {
+            return;
+        }
+
+        GameObject binderObject = new GameObject("PitchTeamBinder");
+        binderObject.AddComponent<PitchTeamBinder>();
+    }
+
     public async void LeaveRoomAndReturnToMenu()
     {
         Debug.Log(
@@ -370,9 +435,6 @@ public class GoalBlitzNetworkManager :
 
         try
         {
-            // Host and client both Shutdown().
-            // Disconnect(player) is a HOST kick API — clients calling it
-            // never notify the host, which creates ghost players.
             Task shutdownTask = ShutdownRunner();
             Task timeoutTask = Task.Delay(5000);
             Task finished = await Task.WhenAny(shutdownTask, timeoutTask);
@@ -658,6 +720,7 @@ public class GoalBlitzNetworkManager :
 
     public void OnSceneLoadDone(NetworkRunner callbackRunner)
     {
+        EnsurePitchTeamBinder();
     }
 
     public void OnSceneLoadStart(NetworkRunner callbackRunner)
