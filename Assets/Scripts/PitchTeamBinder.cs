@@ -2,12 +2,20 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Local player controls only their lobby team (Blue -> PlayerBlue, Red -> PlayerRed).
-/// Remote avatar and the ball are copies of the host match, not a second local game.
-/// Offline (no runner): both players stay locally controllable.
+/// Local player controls only their lobby team. The other avatar and the ball
+/// are rendered from the host's snapshots, a few milliseconds behind, so motion
+/// stays smooth instead of hitching every physics step.
 /// </summary>
 public class PitchTeamBinder : MonoBehaviour
 {
+    private struct Snapshot
+    {
+        public Vector2 Position;
+        public Vector2 Velocity;
+        public float Time;
+        public bool Valid;
+    }
+
     [SerializeField] private PlayerController bluePlayer;
     [SerializeField] private PlayerController redPlayer;
 
@@ -16,9 +24,15 @@ public class PitchTeamBinder : MonoBehaviour
     private bool boundOnce;
     private float nextRttLog;
     private Rigidbody2D ballBody;
-    private Vector2 ballFrom;
-    private Vector2 ballTo;
-    private float ballLerp;
+
+    private Snapshot blueA;
+    private Snapshot blueB;
+    private Snapshot redA;
+    private Snapshot redB;
+    private Snapshot ballA;
+    private Snapshot ballB;
+
+    private const float RenderDelay = 0.045f;
 
     private void Start()
     {
@@ -33,9 +47,23 @@ public class PitchTeamBinder : MonoBehaviour
             return;
         }
 
+        int localTeam = lobbyState.GetTeamForPlayer(runner.LocalPlayer);
+        bool localIsBlue = localTeam == GoalBlitzLobbyState.BlueTeam;
+        bool localIsRed = localTeam == GoalBlitzLobbyState.RedTeam;
+
+        if (!localIsBlue)
+        {
+            RenderSnapshot(bluePlayer, blueA, blueB);
+        }
+
+        if (!localIsRed)
+        {
+            RenderSnapshot(redPlayer, redA, redB);
+        }
+
         if (!lobbyState.HasStateAuthority)
         {
-            SmoothRemoteBall();
+            RenderBall(ballA, ballB);
         }
     }
 
@@ -46,8 +74,6 @@ public class PitchTeamBinder : MonoBehaviour
 
         if (runner != null && runner.IsRunning && !IsLobbyAlive())
         {
-            // Runner is up but the lobby object has not been found yet.
-            // Do not fall back to offline, or both phones drive PlayerBlue.
             SetInput(bluePlayer, false);
             SetInput(redPlayer, false);
             return;
@@ -57,6 +83,9 @@ public class PitchTeamBinder : MonoBehaviour
         {
             SetInput(bluePlayer, true);
             SetInput(redPlayer, true);
+            SetSimulated(bluePlayer, true);
+            SetSimulated(redPlayer, true);
+            SetBallSimulated(true);
             return;
         }
 
@@ -69,6 +98,7 @@ public class PitchTeamBinder : MonoBehaviour
             bluePlayer.teamId = GoalBlitzLobbyState.BlueTeam;
             SetInput(bluePlayer, localIsBlue);
             bluePlayer.useMobileInput = localIsBlue;
+            SetSimulated(bluePlayer, localIsBlue);
         }
 
         if (redPlayer != null)
@@ -76,7 +106,10 @@ public class PitchTeamBinder : MonoBehaviour
             redPlayer.teamId = GoalBlitzLobbyState.RedTeam;
             SetInput(redPlayer, localIsRed);
             redPlayer.useMobileInput = localIsRed;
+            SetSimulated(redPlayer, localIsRed);
         }
+
+        SetBallSimulated(lobbyState.HasStateAuthority);
 
         if (!boundOnce)
         {
@@ -105,17 +138,20 @@ public class PitchTeamBinder : MonoBehaviour
             Report(redPlayer, GoalBlitzLobbyState.RedTeam);
         }
 
-        if (!localIsBlue && bluePlayer != null)
+        if (!localIsBlue)
         {
-            ApplyRemote(bluePlayer, lobbyState.BluePosition, lobbyState.BlueVelocity);
+            Push(ref blueA, ref blueB, lobbyState.BluePosition, lobbyState.BlueVelocity);
         }
 
-        if (!localIsRed && redPlayer != null)
+        if (!localIsRed)
         {
-            ApplyRemote(redPlayer, lobbyState.RedPosition, lobbyState.RedVelocity);
+            Push(ref redA, ref redB, lobbyState.RedPosition, lobbyState.RedVelocity);
         }
 
-        ApplyBallAuthority();
+        if (!lobbyState.HasStateAuthority && lobbyState.BallTick != 0)
+        {
+            Push(ref ballA, ref ballB, lobbyState.BallPosition, lobbyState.BallVelocity);
+        }
     }
 
     private void Report(PlayerController controller, int team)
@@ -129,76 +165,72 @@ public class PitchTeamBinder : MonoBehaviour
         lobbyState.RPC_ReportPlayerTransform(team, rb.position, rb.velocity);
     }
 
-    private static void ApplyRemote(
-        PlayerController controller,
-        Vector2 position,
-        Vector2 velocity)
+    private static void Push(ref Snapshot older, ref Snapshot newer, Vector2 position, Vector2 velocity)
     {
+        if (position.sqrMagnitude < 0.0001f && velocity.sqrMagnitude < 0.0001f && !newer.Valid)
+        {
+            return;
+        }
+
+        if (newer.Valid &&
+            (newer.Position - position).sqrMagnitude < 0.000001f &&
+            (newer.Velocity - velocity).sqrMagnitude < 0.000001f)
+        {
+            return;
+        }
+
+        older = newer;
+        newer.Position = position;
+        newer.Velocity = velocity;
+        newer.Time = Time.time;
+        newer.Valid = true;
+    }
+
+    private static void RenderSnapshot(PlayerController controller, Snapshot older, Snapshot newer)
+    {
+        if (controller == null || !newer.Valid)
+        {
+            return;
+        }
+
         Rigidbody2D rb = controller.GetComponent<Rigidbody2D>();
         if (rb == null)
         {
             return;
         }
 
-        if (position.sqrMagnitude < 0.0001f && velocity.sqrMagnitude < 0.0001f)
+        rb.position = Sample(older, newer);
+        rb.velocity = newer.Velocity;
+    }
+
+    private void RenderBall(Snapshot older, Snapshot newer)
+    {
+        if (!newer.Valid)
         {
             return;
         }
 
-        rb.position = Vector2.Lerp(rb.position, position, 0.65f);
-        rb.velocity = velocity;
-    }
-
-    private void ApplyBallAuthority()
-    {
         Rigidbody2D ball = FindBall();
         if (ball == null)
         {
             return;
         }
 
-        if (lobbyState.HasStateAuthority)
-        {
-            if (ball.bodyType != RigidbodyType2D.Dynamic)
-            {
-                ball.bodyType = RigidbodyType2D.Dynamic;
-            }
-
-            return;
-        }
-
-        if (ball.bodyType != RigidbodyType2D.Kinematic)
-        {
-            ball.bodyType = RigidbodyType2D.Kinematic;
-            ball.velocity = Vector2.zero;
-            ballFrom = ball.position;
-            ballTo = lobbyState.BallPosition;
-            ballLerp = 1f;
-        }
-
-        if (lobbyState.BallTick == 0 &&
-            lobbyState.BallPosition.sqrMagnitude < 0.0001f &&
-            lobbyState.BallVelocity.sqrMagnitude < 0.0001f)
-        {
-            return;
-        }
-
-        ballFrom = ball.position;
-        ballTo = lobbyState.BallPosition;
-        ballLerp = 0f;
-        ball.velocity = lobbyState.BallVelocity;
+        ball.position = Sample(older, newer);
+        ball.velocity = newer.Velocity;
     }
 
-    private void SmoothRemoteBall()
+    private static Vector2 Sample(Snapshot older, Snapshot newer)
     {
-        Rigidbody2D ball = FindBall();
-        if (ball == null)
+        if (!older.Valid)
         {
-            return;
+            return newer.Position;
         }
 
-        ballLerp = Mathf.MoveTowards(ballLerp, 1f, Time.deltaTime * 20f);
-        ball.position = Vector2.Lerp(ballFrom, ballTo, ballLerp);
+        float span = Mathf.Max(0.001f, newer.Time - older.Time);
+        float targetTime = Time.time - RenderDelay;
+        float u = Mathf.Clamp01((targetTime - older.Time) / span);
+        return Vector2.Lerp(older.Position, newer.Position, u);
     }
 
     private Rigidbody2D FindBall()
@@ -244,6 +276,57 @@ public class PitchTeamBinder : MonoBehaviour
         {
             controller.useMobileInput = false;
         }
+    }
+
+    private static void SetSimulated(PlayerController controller, bool simulated)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+
+        Rigidbody2D rb = controller.GetComponent<Rigidbody2D>();
+        if (rb == null)
+        {
+            return;
+        }
+
+        RigidbodyType2D wanted = simulated
+            ? RigidbodyType2D.Dynamic
+            : RigidbodyType2D.Kinematic;
+
+        if (rb.bodyType != wanted)
+        {
+            rb.velocity = Vector2.zero;
+            rb.bodyType = wanted;
+        }
+
+        rb.interpolation = simulated
+            ? RigidbodyInterpolation2D.Interpolate
+            : RigidbodyInterpolation2D.None;
+    }
+
+    private void SetBallSimulated(bool simulated)
+    {
+        Rigidbody2D ball = FindBall();
+        if (ball == null)
+        {
+            return;
+        }
+
+        RigidbodyType2D wanted = simulated
+            ? RigidbodyType2D.Dynamic
+            : RigidbodyType2D.Kinematic;
+
+        if (ball.bodyType != wanted)
+        {
+            ball.velocity = Vector2.zero;
+            ball.bodyType = wanted;
+        }
+
+        ball.interpolation = simulated
+            ? RigidbodyInterpolation2D.Interpolate
+            : RigidbodyInterpolation2D.None;
     }
 
     private bool IsLobbyAlive()
