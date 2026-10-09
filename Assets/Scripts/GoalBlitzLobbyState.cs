@@ -27,6 +27,18 @@ public class GoalBlitzLobbyState : NetworkBehaviour
     [Networked]
     public NetworkBool RedReady { get; private set; }
 
+    [Networked]
+    public Vector2 BluePosition { get; private set; }
+
+    [Networked]
+    public Vector2 BlueVelocity { get; private set; }
+
+    [Networked]
+    public Vector2 RedPosition { get; private set; }
+
+    [Networked]
+    public Vector2 RedVelocity { get; private set; }
+
     public override void Spawned()
     {
         Instance = this;
@@ -188,6 +200,37 @@ public class GoalBlitzLobbyState : NetworkBehaviour
         else if (RedPlayer == requestingPlayer)
         {
             RedReady = ready;
+        }
+    }
+
+    [Rpc(
+        RpcSources.All,
+        RpcTargets.StateAuthority,
+        HostMode = RpcHostMode.SourceIsHostPlayer
+    )]
+    public void RPC_ReportPlayerTransform(
+        int team,
+        Vector2 position,
+        Vector2 velocity,
+        RpcInfo info = default
+    )
+    {
+        if (!Object.HasStateAuthority)
+        {
+            return;
+        }
+
+        PlayerRef source = info.Source;
+
+        if (team == BlueTeam && BluePlayer == source)
+        {
+            BluePosition = position;
+            BlueVelocity = velocity;
+        }
+        else if (team == RedTeam && RedPlayer == source)
+        {
+            RedPosition = position;
+            RedVelocity = velocity;
         }
     }
 
