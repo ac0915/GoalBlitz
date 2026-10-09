@@ -39,11 +39,11 @@ public class MatchManager : MonoBehaviour
     public float goalTextPulseSpeed = 12f;
 
     [Header("Replay")]
-    public float replayRecordSeconds = 6f;
-    public float replayPlaybackSpeed = 1.25f;
+    public float replayBeforeSeconds = 3f;
+    public float replayAfterSeconds = 3f;
+    public float replayPlaybackSpeed = 1f;
     public float replayGoalShowSeconds = 0.8f;
-    public float replaySlowSeconds = 1f;
-    public float replaySlowSpeed = 0.75f;
+    public float replaySlowSpeed = 0.5f;
 
     public static MatchManager Instance { get; private set; }
 
@@ -65,6 +65,7 @@ public class MatchManager : MonoBehaviour
 
     private Vector2 lastGoalPosition;
     private float replayProgress;
+    private int goalFrameIndex;
 
     private readonly List<ReplayFrame> replayFrames =
         new List<ReplayFrame>();
@@ -118,7 +119,7 @@ public class MatchManager : MonoBehaviour
     {
         if (state == MatchState.Playing)
         {
-            RecordReplayFrame();
+            RecordReplayFrame(true);
         }
     }
 
@@ -176,9 +177,16 @@ public class MatchManager : MonoBehaviour
             BlackHoleGoalEffect(lastGoalPosition)
         );
 
-        yield return new WaitForSecondsRealtime(
-            goalCelebrationSeconds
+        goalFrameIndex = replayFrames.Count;
+        int afterFrames = Mathf.CeilToInt(
+            Mathf.Max(0.1f, replayAfterSeconds) / Time.fixedDeltaTime
         );
+
+        for (int n = 0; n < afterFrames; n++)
+        {
+            yield return new WaitForFixedUpdate();
+            RecordReplayFrame(false);
+        }
 
         LockPlayers(true);
         StopAndFreezePhysics(true);
@@ -258,13 +266,18 @@ public class MatchManager : MonoBehaviour
             ball.transform.position =
                 frame.ballPosition;
 
-            int slowFrameCount = Mathf.CeilToInt(
-                Mathf.Max(0f, replaySlowSeconds) / Time.fixedDeltaTime
+            int oneSecondFrames = Mathf.Max(
+                1,
+                Mathf.RoundToInt(1f / Time.fixedDeltaTime)
             );
-            int slowStart = Mathf.Max(0, replayFrames.Count - slowFrameCount);
-            float speed = i >= slowStart
+            int slowStart = Mathf.Max(0, goalFrameIndex - oneSecondFrames);
+            int slowEnd = Mathf.Min(
+                replayFrames.Count,
+                goalFrameIndex + oneSecondFrames
+            );
+            float speed = i >= slowStart && i < slowEnd
                 ? replaySlowSpeed
-                : replayPlaybackSpeed;
+                : 1f;
 
             yield return new WaitForSecondsRealtime(
                 Time.fixedDeltaTime / Mathf.Max(0.05f, speed)
@@ -272,7 +285,7 @@ public class MatchManager : MonoBehaviour
         }
     }
 
-    private void RecordReplayFrame()
+    private void RecordReplayFrame(bool trimToBeforeGoal)
     {
         replayFrames.Add(
             new ReplayFrame(
@@ -282,11 +295,16 @@ public class MatchManager : MonoBehaviour
             )
         );
 
+        if (!trimToBeforeGoal)
+        {
+            return;
+        }
+
         int maximumFrames = Mathf.CeilToInt(
-            replayRecordSeconds / Time.fixedDeltaTime
+            Mathf.Max(0.1f, replayBeforeSeconds) / Time.fixedDeltaTime
         );
 
-        if (replayFrames.Count > maximumFrames)
+        while (replayFrames.Count > maximumFrames)
         {
             replayFrames.RemoveAt(0);
         }
@@ -641,7 +659,7 @@ public class MatchManager : MonoBehaviour
             float showGoalAt =
                 1f - (
                     replayGoalShowSeconds /
-                    Mathf.Max(0.1f, replayRecordSeconds)
+                    Mathf.Max(0.1f, replayBeforeSeconds + replayAfterSeconds)
                 );
 
             if (replayProgress >= showGoalAt)
