@@ -66,11 +66,6 @@ public class PitchTeamBinder : MonoBehaviour
         {
             RenderSnapshot(redPlayer, redA, redB);
         }
-
-        if (!lobbyState.HasStateAuthority)
-        {
-            RenderBall(ballA, ballB);
-        }
     }
 
     private void FixedUpdate()
@@ -117,7 +112,7 @@ public class PitchTeamBinder : MonoBehaviour
             SetSimulated(redPlayer, localIsRed || host);
         }
 
-        SetBallSimulated(host);
+        SetBallSimulated(true);
 
         if (!boundOnce)
         {
@@ -167,7 +162,54 @@ public class PitchTeamBinder : MonoBehaviour
         if (!host && lobbyState.BallTick != 0)
         {
             Push(ref ballA, ref ballB, lobbyState.BallPosition, lobbyState.BallVelocity);
+            CorrectClientBall(localIsBlue ? bluePlayer : redPlayer);
         }
+    }
+
+    private static float predictBallUntil;
+
+    public static void PredictBall(float seconds)
+    {
+        predictBallUntil = Time.time + seconds;
+    }
+
+    private void CorrectClientBall(PlayerController localPlayer)
+    {
+        Rigidbody2D ball = FindBall();
+        if (ball == null || !ballB.Valid)
+        {
+            return;
+        }
+
+        Vector2 server = ballB.Position;
+        float error = Vector2.Distance(ball.position, server);
+        bool near = false;
+        if (localPlayer != null)
+        {
+            near = Vector2.Distance(localPlayer.transform.position, ball.position) < 1.4f;
+        }
+
+        bool predicting = Time.time < predictBallUntil || near;
+        if (predicting)
+        {
+            if (error > 3.5f)
+            {
+                ball.position = server;
+                ball.velocity = ballB.Velocity;
+            }
+
+            return;
+        }
+
+        if (error > 1.6f)
+        {
+            ball.position = server;
+            ball.velocity = ballB.Velocity;
+            return;
+        }
+
+        ball.position = Vector2.Lerp(ball.position, server, 0.35f);
+        ball.velocity = Vector2.Lerp(ball.velocity, ballB.Velocity, 0.35f);
     }
 
     private static void DriveRemoteOnHost(PlayerController controller, Vector2 position, Vector2 velocity)

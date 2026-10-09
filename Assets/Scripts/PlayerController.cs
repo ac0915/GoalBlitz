@@ -398,13 +398,12 @@ public class PlayerController : MonoBehaviour
                       runner != null &&
                       runner.IsRunning;
 
+        nearBall.velocity = kickVelocity;
+
         if (online)
         {
             lobby.RPC_KickBall(kickVelocity);
-        }
-        else
-        {
-            nearBall.velocity = kickVelocity;
+            PitchTeamBinder.PredictBall(0.35f);
         }
 
         ResetCharge(true);
