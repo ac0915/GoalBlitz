@@ -199,6 +199,8 @@ public class GoalBlitzNetworkManager :
             NetworkSceneManagerDefault sceneManager =
                 runnerObject.AddComponent<NetworkSceneManagerDefault>();
 
+            TryPinAsiaRegion();
+
             StartGameArgs arguments = new StartGameArgs
             {
                 GameMode = gameMode,
@@ -314,6 +316,12 @@ public class GoalBlitzNetworkManager :
 
     private void SpawnLobbyState()
     {
+        if (lobbyState != null &&
+            (lobbyState.Object == null || !lobbyState.Object.IsValid))
+        {
+            lobbyState = null;
+        }
+
         if (runner == null ||
             !runner.IsRunning ||
             !runner.IsServer ||
@@ -348,7 +356,10 @@ public class GoalBlitzNetworkManager :
                 "The assigned Lobby State Prefab does not contain GoalBlitzLobbyState.",
                 this
             );
+            return;
         }
+
+        lobbyState.KeepAliveAcrossScenes();
     }
 
     public async void StartMatch()
@@ -371,6 +382,9 @@ public class GoalBlitzNetworkManager :
             );
             return;
         }
+
+        GoalBlitzLobbyState.CaptureRoster(state);
+        state.KeepAliveAcrossScenes();
 
         int pitchBuildIndex =
             SceneUtility.GetBuildIndexByScenePath(onlinePitchScenePath);
@@ -720,11 +734,88 @@ public class GoalBlitzNetworkManager :
 
     public void OnSceneLoadDone(NetworkRunner callbackRunner)
     {
+        EnsureLobbyAlive(callbackRunner);
         EnsurePitchTeamBinder();
     }
 
     public void OnSceneLoadStart(NetworkRunner callbackRunner)
     {
+    }
+
+    private void EnsureLobbyAlive(NetworkRunner callbackRunner)
+    {
+        if (callbackRunner == null || !callbackRunner.IsServer)
+        {
+            return;
+        }
+
+        runner = callbackRunner;
+        GoalBlitzLobbyState state = GoalBlitzLobbyState.Instance;
+        if (state != null && state.Object != null && state.Object.IsValid)
+        {
+            state.KeepAliveAcrossScenes();
+            lobbyState = state;
+            return;
+        }
+
+        lobbyState = null;
+        SpawnLobbyState();
+    }
+
+    private static void TryPinAsiaRegion()
+    {
+        try
+        {
+            System.Type settingsType = null;
+            foreach (System.Reflection.Assembly assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                settingsType = assembly.GetType("Fusion.Photon.Realtime.PhotonAppSettings");
+                if (settingsType != null)
+                {
+                    break;
+                }
+            }
+
+            if (settingsType == null)
+            {
+                Debug.LogWarning("GoalBlitzNetworkManager: PhotonAppSettings not found. Region left as-is.");
+                return;
+            }
+
+            System.Reflection.PropertyInfo globalProp = settingsType.GetProperty(
+                "Global",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static
+            );
+            object global = globalProp != null ? globalProp.GetValue(null) : null;
+            if (global == null)
+            {
+                return;
+            }
+
+            System.Reflection.PropertyInfo appProp = settingsType.GetProperty("AppSettings");
+            object app = appProp != null ? appProp.GetValue(global) : null;
+            if (app == null)
+            {
+                return;
+            }
+
+            System.Reflection.FieldInfo regionField = app.GetType().GetField("FixedRegion");
+            if (regionField == null)
+            {
+                return;
+            }
+
+            string current = regionField.GetValue(app) as string;
+            if (string.IsNullOrEmpty(current))
+            {
+                regionField.SetValue(app, "asia");
+                Debug.Log("GoalBlitzNetworkManager: Photon region pinned to asia.");
+            }
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogWarning("GoalBlitzNetworkManager: Region pin skipped. " + exception.Message);
+        }
     }
 
     private string GenerateRoomCode()

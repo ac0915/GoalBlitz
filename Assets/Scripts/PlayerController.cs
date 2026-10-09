@@ -1,4 +1,4 @@
-using System.Collections;
+using Fusion;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -40,7 +40,6 @@ public class PlayerController : MonoBehaviour
     [Tooltip("1 = Blue, 2 = Red. Used online to bind control to lobby team.")]
     public int teamId;
 
-    // When false, this avatar is driven by network sync (other player's character).
     private bool networkInputEnabled = true;
 
     private Rigidbody2D rb;
@@ -70,7 +69,6 @@ public class PlayerController : MonoBehaviour
 
     private bool inputLocked;
 
-    // Mouse press that started on the joystick/HUD must not count as kick-hold.
     private static bool mousePressStartedOnUi;
 
     public void SetKickHeld(bool held)
@@ -186,8 +184,6 @@ public class PlayerController : MonoBehaviour
         }
 
         bool keyDown = Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
-        // Mouse left is used to drag the joystick. Never treat it as kick when
-        // this player uses mobile input, and never when the press began on UI.
         bool mouseDown = !useMobileInput
             && Mouse.current != null
             && Mouse.current.leftButton.isPressed
@@ -222,7 +218,6 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        // Movement
         Vector2 desired = input * moveSpeed;
         if (kickHeld)
         {
@@ -237,13 +232,11 @@ public class PlayerController : MonoBehaviour
 
         rb.velocity = Vector2.MoveTowards(rb.velocity, desired, accel * Time.fixedDeltaTime);
 
-        // Dash override
         if (Time.time < dashUntil)
         {
             rb.velocity = lastDir * dashSpeed;
         }
 
-        // Ball hold / kick
         UpdateNearBall();
         HandleKick();
     }
@@ -396,7 +389,24 @@ public class PlayerController : MonoBehaviour
             force = powerShotForce;
         }
 
-        nearBall.velocity = kickDir * force;
+        Vector2 kickVelocity = kickDir * force;
+        GoalBlitzLobbyState lobby = GoalBlitzLobbyState.Instance;
+        NetworkRunner runner = FindObjectOfType<NetworkRunner>();
+        bool online = lobby != null &&
+                      lobby.Object != null &&
+                      lobby.Object.IsValid &&
+                      runner != null &&
+                      runner.IsRunning;
+
+        if (online)
+        {
+            lobby.RPC_KickBall(kickVelocity);
+        }
+        else
+        {
+            nearBall.velocity = kickVelocity;
+        }
+
         ResetCharge(true);
     }
 
