@@ -372,21 +372,27 @@ public class GoalBlitzNetworkManager :
             return;
         }
 
+        // Always use Pitch.scene. Hardcoded so an old Inspector value
+        // on the component cannot override it.
+        const string pitchScenePath = "Assets/Scenes/Pitch.scene";
+        onlinePitchScenePath = pitchScenePath;
+
         int pitchBuildIndex =
-            SceneUtility.GetBuildIndexByScenePath(onlinePitchScenePath);
+            SceneUtility.GetBuildIndexByScenePath(pitchScenePath);
 
         if (pitchBuildIndex < 0)
         {
             Debug.LogError(
                 "Pitch.scene is not enabled in Build Settings. Path: " +
-                onlinePitchScenePath,
+                pitchScenePath,
                 this
             );
             return;
         }
 
         Debug.Log(
-            "GoalBlitzNetworkManager: Loading Pitch for match.",
+            "GoalBlitzNetworkManager: Loading Pitch for match. buildIndex=" +
+            pitchBuildIndex,
             this
         );
 
